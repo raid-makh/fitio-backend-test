@@ -75,8 +75,8 @@ const SPLIT_OPTIONS = {
     2: ['full_body'],
     3: ['full_body', 'upper_lower'],
     4: ['upper_lower', 'push_pull'],
-    5: ['upper_lower', 'ppl'],
-    6: ['ppl', 'push_pull'],
+    5: ['upper_lower', 'ppl', 'body_part'],
+    6: ['ppl', 'push_pull', 'body_part'],
 };
 function validatePayload(p) {
     const errors = [];
@@ -208,6 +208,8 @@ function resolveConstraints(p) {
         blockedExercises: uniqueBlocked,
         modifiedExercises: uniqueModified,
         injuryAreas: p.injuries?.areas ?? [],
+        daysPerWeek: p.schedule.daysPerWeek, // ← add
+        sessionDurationMinutes: p.schedule.sessionDurationMinutes,
         injurySeverity: p.injuries?.severity ?? null,
         weeklyTimeBudgetMinutes,
         maxExercisesPerSession,
@@ -358,6 +360,12 @@ function calculateVolumeLandmarks(p, attrs, recovery) {
 // ─────────────────────────────────────────────────────────────
 function buildIntensityProfile(p, attrs) {
     const base = { ...INTENSITY_PROFILES_BASE[p.goal] };
+    if (p.goalRefinement.goal === 'get_stronger' &&
+        p.goalRefinement
+            .targetLifts.includes('general_strength')) {
+        base.repRangeMin = 3; // ← was 1
+        base.repRangeMax = 8; // ← was 6
+    }
     // Seed 1RM estimates from working weights (Epley formula, assumes ~5 rep working set)
     let estimated1RM;
     const ww = p.intermediateAdvancedPath?.workingWeights;
@@ -521,10 +529,19 @@ function buildProfile(payload) {
         intensityProfile,
         goalDecomposition,
         recoveryProfile,
+        movementCompetency: attrs.movementCompetency, // ← add
+        tdeeModifier: attrs.tdeeModifier, // ← add
+        ...(attrs.bmi !== undefined ? { bmi: attrs.bmi } : {}), // ← add
         confidenceScore: computeInitialConfidence(payload),
         createdAt: new Date().toISOString(),
         rawPayload: payload,
     };
+    // Print the built profile
+    console.log('\x1b[36m%s\x1b[0m', '─────────────────────────────────────────────────────────────');
+    console.log('\x1b[32m%s\x1b[0m', '✅ PROFILE BUILT SUCCESSFULLY');
+    console.log('\x1b[36m%s\x1b[0m', '─────────────────────────────────────────────────────────────');
+    console.log(JSON.stringify(profile, null, 2));
+    console.log('\x1b[36m%s\x1b[0m', '─────────────────────────────────────────────────────────────');
     return {
         success: true,
         profile,
